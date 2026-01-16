@@ -68,7 +68,7 @@ RUN chmod +x /usr/local/bin/speederv2 /entrypoint.sh && \
     chown -R 1000:1000 /app
 
 # 暴露端口 (默认4096，>1024无需特殊权限)
-EXPOSE 4096/udp
+EXPOSE 29900/udp
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD /entrypoint.sh health
