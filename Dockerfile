@@ -1,7 +1,7 @@
 # ============================================================================
-# UDPspeeder Docker Image
+# UDP-Speeder Docker Image
 # ============================================================================
-# 项目: UDPspeeder
+# 项目: UDP-Speeder
 # 版本: v2.1
 # 基础镜像: Debian 12 (Bookworm)
 # 日期: 2026-01-16
@@ -10,7 +10,7 @@
 
 FROM debian:12-slim AS builder
 
-LABEL maintainer="UDPspeeder Project"
+LABEL maintainer="UDP-Speeder Project"
 LABEL description="UDP network accelerator with FEC"
 
 ARG BUILD_DATE
@@ -45,7 +45,7 @@ FROM debian:12-slim
 
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
-LABEL org.opencontainers.image.title="UDPspeeder"
+LABEL org.opencontainers.image.title="UDP-Speeder"
 LABEL org.opencontainers.image.description="UDP network accelerator with FEC"
 
 # 安装运行时依赖
