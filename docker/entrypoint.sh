@@ -37,8 +37,10 @@ setup_user() {
             useradd -u $PUID -g $PGID -m -s /bin/bash speeder 2>/dev/null || usermod -u $PUID -g $PGID speeder
         fi
         
-        # 设置目录权限
-        chown -R $PUID:$PGID /app 2>/dev/null || true
+        # ⭐ 强制重新设置持久化目录权限
+        mkdir -p /app/config /app/logs
+        chown -R $PUID:$PGID /app
+        chmod -R 755 /app
     fi
 }
 
@@ -67,6 +69,7 @@ MTU="${MTU:-1250}"
 REPORT="${REPORT:-0}"
 DISABLE_OBSCURE="${DISABLE_OBSCURE:-0}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
+LOG_FILE="${LOG_FILE:-}"  # ⭐ 新增：可选日志文件路径
 
 # 构建命令
 CMD="/usr/local/bin/speederv2"
@@ -96,7 +99,7 @@ CMD="$CMD --timeout ${TIMEOUT}"
 [ -n "$EXTRA_ARGS" ] && CMD="$CMD $EXTRA_ARGS"
 
 echo "=========================================="
-echo "UDPspeeder Docker Container"
+echo "UDP-Speeder Docker Container"
 echo "=========================================="
 echo "Mode: $MODE"
 echo "Listen: ${LOCAL_ADDR}:${LOCAL_PORT}"
@@ -112,9 +115,18 @@ echo "=========================================="
 echo "Starting: $CMD"
 echo "=========================================="
 
-# 执行命令（根据PUID决定是否切换用户）
-if [ "${PUID:-1000}" != "0" ] && [ "${PGID:-1000}" != "0" ]; then
-    exec gosu speeder $CMD
+# ⭐ 日志重定向支持（可选）
+if [ -n "$LOG_FILE" ]; then
+    echo "Logging to: $LOG_FILE"
+    if [ "${PUID:-1000}" != "0" ] && [ "${PGID:-1000}" != "0" ]; then
+        exec gosu speeder sh -c "$CMD 2>&1 | tee -a $LOG_FILE"
+    else
+        exec sh -c "$CMD 2>&1 | tee -a $LOG_FILE"
+    fi
 else
-    exec $CMD
+    if [ "${PUID:-1000}" != "0" ] && [ "${PGID:-1000}" != "0" ]; then
+        exec gosu speeder $CMD
+    else
+        exec $CMD
+    fi
 fi
