@@ -18,7 +18,7 @@ services:
   # 服务端配置 (Host Network Mode)
   # ============================================================================
   speeder-server:
-    image: ghcr.io/${GITHUB_REPOSITORY:-username/udpspeeder}:latest
+    image: ghcr.io/ihub-2020/udpspeeder}:latest
     container_name: udpspeeder-server
     restart: unless-stopped
     network_mode: host
@@ -67,7 +67,7 @@ services:
   # 客户端配置 (Host Network Mode)
   # ============================================================================
   speeder-client:
-    image: ghcr.io/${GITHUB_REPOSITORY:-username/udpspeeder}:latest
+    image: ghcr.io/ihub-2020/udpspeeder}:latest
     container_name: udpspeeder-client
     restart: unless-stopped
     network_mode: host
