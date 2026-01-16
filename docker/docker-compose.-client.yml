@@ -1,68 +1,58 @@
 # ============================================================================
-# UDPspeeder Docker Compose Configuration (Host Network Mode)
+# UDPspeeder Docker Compose - Client Configuration
 # ============================================================================
 # 项目: UDPspeeder-Client
-# 版本: v1.1.0
+# 版本: v1.2.0
 # 日期: 2026-01-16
-# 描述: Docker Compose 编排文件 - Host 网络模式（最大化网络性能）
-# 注意: Host 模式直接使用宿主机网络，无网络隔离，性能最优
-# 用法: 
-#   客户端: docker-compose up -d speeder-client
+# 描述: 客户端配置 - Host 网络模式
+# 用法: docker-compose -f docker-compose-client.yml --env-file client.env up -d
 # ============================================================================
 
 version: '3.8'
 
 services:
-  # ============================================================================
-  # 客户端配置 (Host Network Mode)
-  # ============================================================================
   speeder-client:
-    image: ghcr.io/ihub-2020/udpspeeder}:latest
+    image: ghcr.io/ihub-2020/udpspeeder:latest
     container_name: udpspeeder-client
     restart: unless-stopped
     network_mode: host
     
     environment:
       # 运行模式
-      MODE: client
+      - MODE=${MODE:-client}
       
-      # 核心权限配置
-      - PUID=1000           # 运行用户 ID
-      - PGID=1000           # 运行组 ID
-      - UMASK=022           # 文件权限掩码
+      # 用户权限
+      - PUID=${PUID:-0}
+      - PGID=${PGID:-0}
+      - UMASK=${UMASK:-022}
       
-      # 监听地址 (Host 模式直接监听宿主机端口)
-      - LOCAL_ADDR: ${LOCAL_ADDR}
-      - LOCAL_PORT: ${LOCAL_PORT}
+      # 网络配置
+      - LOCAL_ADDR=${LOCAL_ADDR:-0.0.0.0}
+      - LOCAL_PORT=${LOCAL_PORT:-3333}
+      - REMOTE_ADDR=${REMOTE_ADDR}
+      - REMOTE_PORT=${REMOTE_PORT:-4096}
       
-      # 服务端地址 (填写服务端公网 IP)
-      - REMOTE_ADDR: ${REMOTE_ADDR}
-      - REMOTE_PORT: ${REMOTE_PORT}
+      # FEC 配置
+      - FEC_PARAMS=${FEC_PARAMS:-20:10}
+      - PASSWORD=${PASSWORD:-passwd}
+      - WORK_MODE=${WORK_MODE:-0}
+      - TIMEOUT=${TIMEOUT:-8}
       
-      # FEC 参数 (必须与服务端一致)
-      - FEC_PARAMS: "20:10"
+      # 高级参数
+      - MTU=${MTU:-1250}
+      - QUEUE_LEN=${QUEUE_LEN:-200}
+      - INTERVAL=${INTERVAL:-0}
+      - JITTER=${JITTER:-0}
+      - REPORT=${REPORT:-10}
+      - DISABLE_OBSCURE=${DISABLE_OBSCURE:-0}
+      - EXTRA_ARGS=${EXTRA_ARGS:-}
       
-      # 密码 (必须与服务端一致)
-      - PASSWORD: "${PASSWORD}"
-      
-      # 工作模式
-      - WORK_MODE: ${WORK_MODE}
-      
-      # FEC 超时
-      - TIMEOUT: ${TIMEOUT}
-      
-      # 额外参数
-      - EXTRA_ARGS: "${EXTRA_ARGS}"
-      
-      # 时区设置
-      - TZ=Asia/Shanghai
+      # 系统配置
+      - TZ=${TZ:-Asia/Shanghai}
     
     volumes:
-      # 配置目录
-      - ${CONFIG_DIR}:/app/config
-      
-      # 日志目录
-      - ${LOG_DIR}:/app:logs
+      - ${CONFIG_DIR:-./config}:/app/config
+      - ${LOG_DIR:-./logs}:/app/logs
     
     healthcheck:
       test: ["CMD", "/entrypoint.sh", "health"]
