@@ -53,7 +53,7 @@ setup_user
 # 默认参数
 MODE="${MODE:-server}"
 LOCAL_ADDR="${LOCAL_ADDR:-0.0.0.0}"
-LOCAL_PORT="${LOCAL_PORT:-4096}"
+LOCAL_PORT="${LOCAL_PORT:-29900}"
 REMOTE_ADDR="${REMOTE_ADDR:-127.0.0.1}"
 REMOTE_PORT="${REMOTE_PORT:-7777}"
 FEC_PARAMS="${FEC_PARAMS:-20:10}"
@@ -113,8 +113,8 @@ echo "Starting: $CMD"
 echo "=========================================="
 
 # 执行命令（根据PUID决定是否切换用户）
-if [ "${PUID:-0}" != "0" ] && [ "${PGID:-0}" != "0" ]; then
-    exec su-exec speeder $CMD
+if [ "${PUID:-1000}" != "0" ] && [ "${PGID:-1000}" != "0" ]; then
+    exec gosu speeder $CMD
 else
     exec $CMD
 fi
