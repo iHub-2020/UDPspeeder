@@ -1,10 +1,11 @@
 # ============================================================================
-# UDPspeeder Docker Compose Configuration
+# UDPspeeder Docker Compose Configuration (Host Network Mode)
 # ============================================================================
 # 项目: UDPspeeder
-# 版本: v1.0.0
+# 版本: v1.1.0
 # 日期: 2026-01-16
-# 描述: Docker Compose 编排文件，支持 Server/Client 双模式部署
+# 描述: Docker Compose 编排文件 - Host 网络模式（最大化网络性能）
+# 注意: Host 模式直接使用宿主机网络，无网络隔离，性能最优
 # 用法: 
 #   服务端: docker-compose up -d speeder-server
 #   客户端: docker-compose up -d speeder-client
@@ -14,22 +15,23 @@ version: '3.8'
 
 services:
   # ============================================================================
-  # 服务端配置
+  # 服务端配置 (Host Network Mode)
   # ============================================================================
   speeder-server:
     image: ghcr.io/${GITHUB_REPOSITORY:-username/udpspeeder}:latest
     container_name: udpspeeder-server
     restart: unless-stopped
+    network_mode: host
     
     environment:
       # 运行模式: server 或 client
       MODE: server
       
-      # 监听地址和端口 (服务端监听公网)
+      # 监听地址和端口 (Host 模式直接监听宿主机端口)
       LOCAL_ADDR: 0.0.0.0
       LOCAL_PORT: 4096
       
-      # 后端地址 (服务端转发到本地服务)
+      # 后端地址 (转发到本地服务)
       REMOTE_ADDR: 127.0.0.1
       REMOTE_PORT: 7777
       
@@ -48,12 +50,6 @@ services:
       # 额外参数 (可选)
       EXTRA_ARGS: "--report 10"
     
-    ports:
-      - "4096:4096/udp"
-    
-    networks:
-      - speeder-net
-    
     healthcheck:
       test: ["CMD", "/entrypoint.sh", "health"]
       interval: 30s
@@ -68,18 +64,19 @@ services:
         max-file: "3"
 
   # ============================================================================
-  # 客户端配置
+  # 客户端配置 (Host Network Mode)
   # ============================================================================
   speeder-client:
     image: ghcr.io/${GITHUB_REPOSITORY:-username/udpspeeder}:latest
     container_name: udpspeeder-client
     restart: unless-stopped
+    network_mode: host
     
     environment:
       # 运行模式
       MODE: client
       
-      # 监听地址 (客户端监听本地)
+      # 监听地址 (Host 模式直接监听宿主机端口)
       LOCAL_ADDR: 0.0.0.0
       LOCAL_PORT: 3333
       
@@ -102,12 +99,6 @@ services:
       # 额外参数
       EXTRA_ARGS: "--report 10"
     
-    ports:
-      - "3333:3333/udp"
-    
-    networks:
-      - speeder-net
-    
     healthcheck:
       test: ["CMD", "/entrypoint.sh", "health"]
       interval: 30s
@@ -120,7 +111,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-networks:
-  speeder-net:
-    driver: bridge
