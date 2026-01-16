@@ -1,25 +1,25 @@
 # ============================================================================
-# UDPspeeder Docker Compose - Server Configuration
+# UDPspeeder Docker Compose - Client Configuration
 # ============================================================================
-# 项目: UDPspeeder-Server
+# 项目: UDPspeeder-Client
 # 版本: v1.2.0
 # 日期: 2026-01-16
-# 描述: 服务端配置 - Host 网络模式
-# 用法: docker-compose -f docker-compose-server.yml --env-file server.env up -d
+# 描述: 客户端配置 - Host 网络模式
+# 用法: docker-compose -f docker-compose-client.yml --env-file client.env up -d
 # ============================================================================
 
 version: '3.8'
 
 services:
-  speeder-server:
+  speeder-client:
     image: ghcr.io/ihub-2020/udpspeeder:latest
-    container_name: udpspeeder-server
+    container_name: udpspeeder-client
     restart: unless-stopped
     network_mode: host
     
     environment:
       # 运行模式
-      - MODE=${MODE:-server}
+      - MODE=${MODE:-client}
       
       # 用户权限
       - PUID=${PUID:-0}
@@ -28,9 +28,9 @@ services:
       
       # 网络配置
       - LOCAL_ADDR=${LOCAL_ADDR:-0.0.0.0}
-      - LOCAL_PORT=${LOCAL_PORT:-4096}
-      - REMOTE_ADDR=${REMOTE_ADDR:-127.0.0.1}
-      - REMOTE_PORT=${REMOTE_PORT:-7777}
+      - LOCAL_PORT=${LOCAL_PORT:-3333}
+      - REMOTE_ADDR=${REMOTE_ADDR}
+      - REMOTE_PORT=${REMOTE_PORT:-4096}
       
       # FEC 配置
       - FEC_PARAMS=${FEC_PARAMS:-20:10}
