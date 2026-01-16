@@ -1,0 +1,126 @@
+# ============================================================================
+# UDPspeeder Docker Compose Configuration
+# ============================================================================
+# 项目: UDPspeeder
+# 版本: v1.0.0
+# 日期: 2026-01-16
+# 描述: Docker Compose 编排文件，支持 Server/Client 双模式部署
+# 用法: 
+#   服务端: docker-compose up -d speeder-server
+#   客户端: docker-compose up -d speeder-client
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 服务端配置
+  # ============================================================================
+  speeder-server:
+    image: ghcr.io/${GITHUB_REPOSITORY:-username/udpspeeder}:latest
+    container_name: udpspeeder-server
+    restart: unless-stopped
+    
+    environment:
+      # 运行模式: server 或 client
+      MODE: server
+      
+      # 监听地址和端口 (服务端监听公网)
+      LOCAL_ADDR: 0.0.0.0
+      LOCAL_PORT: 4096
+      
+      # 后端地址 (服务端转发到本地服务)
+      REMOTE_ADDR: 127.0.0.1
+      REMOTE_PORT: 7777
+      
+      # FEC 参数 (格式: x:y, 每 x 个包发送 y 个冗余包)
+      FEC_PARAMS: "20:10"
+      
+      # 密码 (必须与客户端一致)
+      PASSWORD: "your_secure_password_here"
+      
+      # 工作模式: 0 = 省流量, 1 = 低延迟
+      WORK_MODE: 0
+      
+      # FEC 超时时间 (毫秒)
+      TIMEOUT: 8
+      
+      # 额外参数 (可选)
+      EXTRA_ARGS: "--report 10"
+    
+    ports:
+      - "4096:4096/udp"
+    
+    networks:
+      - speeder-net
+    
+    healthcheck:
+      test: ["CMD", "/entrypoint.sh", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # 客户端配置
+  # ============================================================================
+  speeder-client:
+    image: ghcr.io/${GITHUB_REPOSITORY:-username/udpspeeder}:latest
+    container_name: udpspeeder-client
+    restart: unless-stopped
+    
+    environment:
+      # 运行模式
+      MODE: client
+      
+      # 监听地址 (客户端监听本地)
+      LOCAL_ADDR: 0.0.0.0
+      LOCAL_PORT: 3333
+      
+      # 服务端地址 (填写服务端公网 IP)
+      REMOTE_ADDR: 44.55.66.77
+      REMOTE_PORT: 4096
+      
+      # FEC 参数 (必须与服务端一致)
+      FEC_PARAMS: "20:10"
+      
+      # 密码 (必须与服务端一致)
+      PASSWORD: "your_secure_password_here"
+      
+      # 工作模式
+      WORK_MODE: 0
+      
+      # FEC 超时
+      TIMEOUT: 8
+      
+      # 额外参数
+      EXTRA_ARGS: "--report 10"
+    
+    ports:
+      - "3333:3333/udp"
+    
+    networks:
+      - speeder-net
+    
+    healthcheck:
+      test: ["CMD", "/entrypoint.sh", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  speeder-net:
+    driver: bridge
