@@ -22,15 +22,15 @@ services:
       - MODE=${MODE:-client}
       
       # 用户权限
-      - PUID=${PUID:-0}
-      - PGID=${PGID:-0}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - UMASK=${UMASK:-022}
       
       # 网络配置
       - LOCAL_ADDR=${LOCAL_ADDR:-0.0.0.0}
       - LOCAL_PORT=${LOCAL_PORT:-3333}
       - REMOTE_ADDR=${REMOTE_ADDR}
-      - REMOTE_PORT=${REMOTE_PORT:-4096}
+      - REMOTE_PORT=${REMOTE_PORT:-29900}
       
       # FEC 配置
       - FEC_PARAMS=${FEC_PARAMS:-20:10}
