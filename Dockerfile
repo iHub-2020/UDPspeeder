@@ -2,7 +2,7 @@
 # UDPspeeder Docker Image
 # ============================================================================
 # 项目: UDPspeeder
-# 版本: v2.0
+# 版本: v2.1
 # 基础镜像: Debian 12 (Bookworm)
 # 日期: 2026-01-16
 # 描述: 双边网络加速工具，通过 FEC 技术对抗丢包
@@ -13,7 +13,6 @@ FROM debian:12-slim AS builder
 LABEL maintainer="UDPspeeder Project"
 LABEL description="UDP network accelerator with FEC"
 
-# 构建参数
 ARG BUILD_DATE
 ARG VCS_REF
 
@@ -49,18 +48,17 @@ LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.title="UDPspeeder"
 LABEL org.opencontainers.image.description="UDP network accelerator with FEC"
 
-# 创建运行用户
-RUN groupadd -r speeder && useradd -r -g speeder speeder
+# 安装运行时依赖 (procps提供pgrep命令用于健康检查)
+RUN apt-get update && apt-get install -y \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
 
-# 复制二进制文件
+# 复制二进制文件和脚本
 COPY --from=builder /build/speederv2 /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /usr/local/bin/speederv2 /entrypoint.sh && \
-    mkdir -p /var/log/speeder && \
-    chown -R speeder:speeder /var/log/speeder
-
-USER speeder
+    mkdir -p /app/config /app/logs
 
 EXPOSE 4096/udp
 
