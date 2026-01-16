@@ -28,7 +28,7 @@ WORKDIR /build
 # 复制源码
 COPY . .
 
-# 生成版本信息并编译
+# 生成版本信息并编译 (参考makefile: all target)
 RUN echo "const char *gitversion = \"${VCS_REF:-unknown}\";" > git_version.h && \
     g++ -std=c++11 -Wall -Wextra -Wno-unused-variable \
         -Wno-unused-parameter -Wno-missing-field-initializers \
@@ -48,18 +48,26 @@ LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.title="UDPspeeder"
 LABEL org.opencontainers.image.description="UDP network accelerator with FEC"
 
-# 安装运行时依赖 (procps提供pgrep命令用于健康检查)
+# 安装运行时依赖
 RUN apt-get update && apt-get install -y \
     procps \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
+
+# 创建用户 (UID/GID=1000)
+RUN groupadd -g 1000 speeder && \
+    useradd -u 1000 -g 1000 -m -s /bin/bash speeder
 
 # 复制二进制文件和脚本
 COPY --from=builder /build/speederv2 /usr/local/bin/
 COPY docker/entrypoint.sh /entrypoint.sh
 
+# 设置权限
 RUN chmod +x /usr/local/bin/speederv2 /entrypoint.sh && \
-    mkdir -p /app/config /app/logs
+    mkdir -p /app/config /app/logs && \
+    chown -R 1000:1000 /app
 
+# 暴露端口 (默认4096，>1024无需特殊权限)
 EXPOSE 4096/udp
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
