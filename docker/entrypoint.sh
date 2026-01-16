@@ -21,8 +21,8 @@ health_check() {
 
 # 处理 PUID/PGID
 setup_user() {
-    PUID=${PUID:-0}
-    PGID=${PGID:-0}
+    PUID=${PUID:-1000}
+    PGID=${PGID:-1000}
     
     if [ "$PUID" != "0" ] || [ "$PGID" != "0" ]; then
         echo "Setting up user with PUID=$PUID PGID=$PGID"
