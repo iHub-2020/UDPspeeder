@@ -1,45 +1,15 @@
 # ============================================================================
-# GitHub Actions Workflow - UDPspeeder Multi-Platform Build and Release
+# UDPspeeder Multi-Platform Build Workflow
 # ============================================================================
-# 
-# 项目名称: UDPspeeder
-# 作者: 基于 wangyu- 的原始项目，由 AI Assistant 协助优化
-# 版本: v2.1.0
-# 创建时间: 2026-01-16
-# 最后更新: 2026-01-16
-# 
-# 描述:
-#   这个 workflow 用于自动化编译 UDPspeeder 项目的多平台二进制文件。
-#   UDPspeeder 是一个双边网络加速工具，通过 FEC（Forward Error Correction）
-#   技术对抗网络丢包，主要用于加速 UDP 流量，配合 VPN 可以加速全流量。
-# 
-# 支持的平台:
-#   - Linux: amd64, x86, arm, aarch64, mips, mipsel
-#   - Windows: x86_64, x86 (i686)
-#   - macOS: x86_64, arm64 (Apple Silicon)
-# 
-# 触发条件:
-#   1. 推送符合 v*.*.* 格式的 tag
-#   2. 手动触发 (workflow_dispatch)
-# 
-# 输出产物:
-#   - 各平台独立二进制文件
-#   - speederv2_binaries.tar.gz 完整压缩包
-#   - version.txt 版本信息文件
-# 
-# 依赖项目:
-#   - libev (embedded)
-#   - Reed-Solomon FEC library
-# 
-# 参考文档:
-#   - 项目主页: https://github.com/wangyu-/UDPspeeder
-#   - 原始 Makefile: 位于项目根目录
-# 
-# 注意事项:
-#   - 编译参数需要与原始 Makefile 保持一致
-#   - 静态链接可能在某些平台失败，添加了降级方案
-#   - 交叉编译工具链版本需要与目标平台兼容
-# 
+# Project: UDPspeeder
+# Author: iHub-2020
+# Version: v2.2.0
+# Date: 2026-01-17
+# Description: Build OpenWrt binaries for x86_64 and aarch64 platforms
+# Repository: https://github.com/iHub-2020/UDPspeeder
+# Changelog:
+#   v2.2.0 - Simplified workflow for OpenWrt targets only
+#   v2.1.0 - Multi-platform support with detailed configuration
 # ============================================================================
 
 name: Build and Release
@@ -47,371 +17,120 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'          # 匹配 v1.0, v2.0 等
-      - 'v*.*'        # 匹配 v1.0.0, v2.1.0 等
-      - 'v*.*.*'      # 匹配 v1.0.0-beta, v2.1.0-rc1 等
-  pull_request:
-    branches: [ master, main ]
-  workflow_dispatch:  # 允许手动触发构建
+      - 'v*'
+  workflow_dispatch:
 
-# 环境变量配置
 env:
   PROJECT_NAME: speederv2
-  BUILD_TYPE: Release
-  
-  # 编译标志 - 与原始 Makefile 保持一致
   COMMON_FLAGS: >-
-    -std=c++11
-    -Wall
-    -Wextra
-    -Wno-unused-variable
-    -Wno-unused-parameter
-    -Wno-missing-field-initializers
-    -O2
-  
-  # 源文件列表
+    -std=c++11 -Wall -Wextra -O2
+    -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers
   SOURCE_FILES: >-
-    main.cpp
-    log.cpp
-    common.cpp
-    lib/fec.cpp
-    lib/rs.cpp
-    crc32/Crc32.cpp
-    packet.cpp
-    delay_manager.cpp
-    fd_manager.cpp
-    connection.cpp
-    fec_manager.cpp
-    misc.cpp
-    tunnel_client.cpp
-    tunnel_server.cpp
-    my_ev.cpp
+    main.cpp log.cpp common.cpp lib/fec.cpp lib/rs.cpp crc32/Crc32.cpp
+    packet.cpp delay_manager.cpp fd_manager.cpp connection.cpp fec_manager.cpp
+    misc.cpp tunnel_client.cpp tunnel_server.cpp my_ev.cpp
 
-# ============================================================================
-# Job 1: 构建 Linux Native (x86_64/amd64)
-# ============================================================================
 jobs:
-  build-linux-native:
-    name: Build Linux Native (amd64)
-    runs-on: ubuntu-20.04
-    
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0  # 获取完整历史，用于生成准确的版本信息
-      
-      - name: 🔧 Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            g++ \
-            make \
-            file \
-            binutils
-      
-      - name: 📝 Generate version header
-        run: |
-          git_hash=$(git rev-parse HEAD)
-          git_short=$(git rev-parse --short HEAD)
-          build_date=$(date -u '+%b %e %Y %H:%M:%S')
-          
-          echo "const char *gitversion = \"${git_hash}\";" > git_version.h
-          echo "Git version: ${git_short}"
-          echo "Build date: ${build_date}"
-      
-      - name: 🔨 Build amd64 binary (static)
-        run: |
-          g++ ${COMMON_FLAGS} -static \
-              -o ${PROJECT_NAME}_amd64 -I. \
-              ${SOURCE_FILES} \
-              -isystem libev -lrt -lgcc_eh || \
-          g++ ${COMMON_FLAGS} -static \
-              -o ${PROJECT_NAME}_amd64 -I. \
-              ${SOURCE_FILES} \
-              -isystem libev -lrt
-      
-      - name: ✅ Verify binary
-        run: |
-          file ${PROJECT_NAME}_amd64
-          ls -lh ${PROJECT_NAME}_amd64
-          ./${PROJECT_NAME}_amd64 -h || echo "Help output complete"
-      
-      - name: 📤 Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: speederv2_amd64
-          path: speederv2_amd64
-          retention-days: 30
-          compression-level: 9
-
-# ============================================================================
-# Job 2: 交叉编译 Linux 多架构
-# ============================================================================
-  build-linux-cross:
-    name: Build Linux Cross (${{ matrix.config.name }})
+  build-openwrt:
+    name: Build OpenWrt (${{ matrix.arch }})
     runs-on: ubuntu-20.04
     
     strategy:
-      fail-fast: false  # 某个平台失败不影响其他平台
+      fail-fast: false
       matrix:
-        config:
-          # ARM64 (aarch64)
-          - name: aarch64
-            arch: aarch64
+        include:
+          - arch: x86_64
+            cc: g++
+            packages: build-essential
+            static: true
+            
+          - arch: aarch64
             cc: aarch64-linux-gnu-g++
-            cflags: ""
-            ldflags: ""
-            packages: "g++-aarch64-linux-gnu"
-            use_static: true
+            packages: g++-aarch64-linux-gnu
+            static: true
     
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
       
-      - name: 🔧 Install cross-compilation toolchain
+      - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ matrix.config.packages }}
+          sudo apt-get install -y ${{ matrix.packages }}
       
-      - name: 📝 Generate version header
+      - name: Generate version header
         run: |
-          echo "const char *gitversion = \"$(git rev-parse HEAD)\";" > git_version.h
+          echo "const char *gitversion = \"$(git rev-parse --short HEAD)\";" > git_version.h
       
-      - name: 🔨 Build ${{ matrix.config.arch }} binary
+      - name: Build binary
         run: |
-          # 尝试静态链接编译
-          if [ "${{ matrix.config.use_static }}" = "true" ]; then
-            echo "Attempting static build..."
-            ${{ matrix.config.cc }} ${COMMON_FLAGS} \
-                ${{ matrix.config.cflags }} \
-                -static \
-                -o ${PROJECT_NAME}_${{ matrix.config.arch }} -I. \
-                ${SOURCE_FILES} \
-                -isystem libev ${{ matrix.config.ldflags }} -lrt -lgcc_eh || \
-            ${{ matrix.config.cc }} ${COMMON_FLAGS} \
-                ${{ matrix.config.cflags }} \
-                -static \
-                -o ${PROJECT_NAME}_${{ matrix.config.arch }} -I. \
-                ${SOURCE_FILES} \
-                -isystem libev ${{ matrix.config.ldflags }} -lrt || \
-            {
-              echo "Static build failed, trying dynamic build..."
-              ${{ matrix.config.cc }} ${COMMON_FLAGS} \
-                  ${{ matrix.config.cflags }} \
-                  -o ${PROJECT_NAME}_${{ matrix.config.arch }} -I. \
-                  ${SOURCE_FILES} \
-                  -isystem libev ${{ matrix.config.ldflags }} -lrt
-            }
+          if [ "${{ matrix.static }}" = "true" ]; then
+            ${{ matrix.cc }} ${COMMON_FLAGS} -static \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt -lgcc_eh || \
+            ${{ matrix.cc }} ${COMMON_FLAGS} -static \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt || \
+            ${{ matrix.cc }} ${COMMON_FLAGS} \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt
           else
-            ${{ matrix.config.cc }} ${COMMON_FLAGS} \
-                ${{ matrix.config.cflags }} \
-                -o ${PROJECT_NAME}_${{ matrix.config.arch }} -I. \
-                ${SOURCE_FILES} \
-                -isystem libev ${{ matrix.config.ldflags }} -lrt
+            ${{ matrix.cc }} ${COMMON_FLAGS} \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt
           fi
+          
+          file ${PROJECT_NAME}_${{ matrix.arch }}
+          ls -lh ${PROJECT_NAME}_${{ matrix.arch }}
       
-      - name: ✅ Verify binary
-        run: |
-          file ${PROJECT_NAME}_${{ matrix.config.arch }}
-          ls -lh ${PROJECT_NAME}_${{ matrix.config.arch }}
-      
-      - name: 📤 Upload artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: speederv2_${{ matrix.config.arch }}
-          path: speederv2_${{ matrix.config.arch }}
+          name: speederv2_${{ matrix.arch }}
+          path: speederv2_${{ matrix.arch }}
           retention-days: 30
-          compression-level: 9
 
-# ============================================================================
-# Job 5: 创建 Release
-# ============================================================================
   create-release:
-    name: Create GitHub Release
-    needs: 
-      - build-linux-native
-      - build-linux-cross
+    name: Create Release
+    needs: build-openwrt
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       
-      - name: 📦 Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
       
-      - name: 🗂️ Organize release files
+      - name: Prepare release
         run: |
           mkdir -p release
+          find artifacts -type f -name "speederv2_*" -exec cp {} release/ \;
+          chmod +x release/speederv2_*
           
-          echo "=== Organizing artifacts ==="
-          find artifacts -type f
-          
-          # 复制所有二进制文件到 release 目录
-          find artifacts -type f \( -name "speederv2_*" -o -name "*.exe" \) -exec cp {} release/ \;
-          
-          # 设置可执行权限
-          chmod +x release/speederv2_* 2>/dev/null || true
-          
-          echo "=== Release directory contents ==="
-          ls -lh release/
-          
-          # 生成版本信息文件
-          cat > release/version.txt << EOF
-          UDPspeeder Build Information
-          ============================
-          
-          Git Commit: $(git rev-parse HEAD)
-          Git Short:  $(git rev-parse --short HEAD)
-          Git Tag:    ${GITHUB_REF#refs/tags/}
-          Build Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-          Builder:    GitHub Actions
-          
-          Repository: https://github.com/${{ github.repository }}
-          Workflow:   ${{ github.workflow }}
-          Run Number: ${{ github.run_number }}
-          EOF
-          
-          # 复制文档
-          cp README*.md release/ 2>/dev/null || true
-          
-          # 生成 SHA256 校验和
           cd release
-          sha256sum speederv2_* *.exe 2>/dev/null > SHA256SUMS.txt || true
-          cat SHA256SUMS.txt
-          
-          # 创建完整压缩包
+          sha256sum speederv2_* > SHA256SUMS.txt
           tar -czf ../speederv2_binaries.tar.gz *
           cd ..
           
-          echo "=== Final package ==="
+          ls -lh release/
           ls -lh speederv2_binaries.tar.gz
       
-      - name: 📝 Generate release notes
-        id: release_notes
-        run: |
-          cat > release_notes.md << 'EOF'
-          ## 🚀 UDPspeeder Release
-          
-          UDPspeeder 是一个双边网络加速工具，通过 FEC（Forward Error Correction）技术对抗网络丢包。
-          
-          ### 📥 下载说明 / Download Guide
-          
-          #### Linux 平台
-          - **x86_64 (64位)**: `speederv2_amd64` - 推荐大多数现代 Linux 服务器和桌面
-          - **x86 (32位)**: `speederv2_x86` - 适用于旧版 32 位系统
-          - **ARM (32位)**: `speederv2_arm` - 适用于树莓派、路由器等
-          - **ARM64**: `speederv2_aarch64` - 适用于 ARM64 服务器、新版树莓派
-          - **MIPS (大端)**: `speederv2_mips` - 适用于部分路由器
-          - **MIPS (小端)**: `speederv2_mipsel` - 适用于 OpenWrt 路由器
-                    
-          #### 完整包
-          - **所有平台打包**: `speederv2_binaries.tar.gz`
-          
-          ### 🔐 校验文件
-          所有文件的 SHA256 校验和位于 `SHA256SUMS.txt`
-          
-          ### 📖 使用方法 / Usage
-          
-          #### 基本用法
-          
-          ```bash
-          # 服务端 (Server)
-          ./speederv2 -s -l0.0.0.0:4096 -r127.0.0.1:7777 -f20:10 -k "passwd" --mode 0
-          
-          # 客户端 (Client)
-          ./speederv2 -c -l0.0.0.0:3333 -r44.55.66.77:4096 -f20:10 -k "passwd" --mode 0
-          ```
-          
-          #### 游戏加速推荐参数
-          
-          ```bash
-          # 低延迟模式 (多倍发包)
-          ./speederv2 -c -l0.0.0.0:3333 -r SERVER_IP:4096 -f2:4 -k "passwd" --mode 0 -q1
-          
-          # FEC 模式 (省流量)
-          ./speederv2 -c -l0.0.0.0:3333 -r SERVER_IP:4096 -f20:10 -k "passwd" --mode 0
-          ```
-          
-          ### 📚 更多文档
-          
-          - [中文文档](https://github.com/wangyu-/UDPspeeder/blob/master/README.zh-cn.md)
-          - [English Documentation](https://github.com/wangyu-/UDPspeeder/blob/master/README.md)
-          - [Wiki](https://github.com/wangyu-/UDPspeeder/wiki)
-          - [使用经验](https://github.com/wangyu-/UDPspeeder/wiki/使用经验)
-          
-          ### ⚠️ 注意事项
-          
-          1. 首次使用需要赋予可执行权限：`chmod +x speederv2_*`
-          2. 服务端和客户端的 `-f` 和 `-k` 参数必须一致
-          3. 推荐使用 `--mode 0` 避免 MTU 问题
-          4. 配合 [udp2raw](https://github.com/wangyu-/udp2raw-tunnel) 效果更佳
-          
-          ---
-          
-          **构建信息**: 此版本由 GitHub Actions 自动构建
-          EOF
-          
-          cat release_notes.md
-      
-      - name: 🎉 Create GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             speederv2_binaries.tar.gz
             release/speederv2_*
-            release/*.exe
-            release/version.txt
             release/SHA256SUMS.txt
-            release/README*.md
-          body_path: release_notes.md
           draft: false
-          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') || contains(github.ref, 'alpha') }}
+          prerelease: false
           generate_release_notes: true
-          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: 📤 Upload release package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-package
-          path: speederv2_binaries.tar.gz
-          retention-days: 90
-          compression-level: 9
-
-# ============================================================================
-# Job 6: 构建摘要
-# ============================================================================
-  build-summary:
-    name: Build Summary
-    needs:
-      - build-linux-native
-      - build-linux-cross
-    runs-on: ubuntu-latest
-    if: always()
-    
-    steps:
-      - name: 📊 Generate build summary
-        run: |
-          echo "## 🏗️ Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Linux Native (amd64) | ${{ needs.build-linux-native.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Linux Cross Compile | ${{ needs.build-linux-cross.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Workflow**: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Ref**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
-          echo "**SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
