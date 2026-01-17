@@ -1,12 +1,14 @@
 # ============================================================================
-# UDPspeeder OpenWrt Build Workflow [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+# UDPspeeder OpenWrt Build Workflow
 # ============================================================================
 # Project: UDPspeeder
-# Author: iHub-2020 [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+# Author: iHub-2020
 # Version: v2.2.0
 # Date: 2026-01-17
-# Description: Build OpenWrt binaries for x86_64 and aarch64
-# Repository: https://github.com/iHub-2020/UDPspeeder [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+# Description: Build static binaries for x86_64 and aarch64
+# Repository: https://github.com/iHub-2020/UDPspeeder
+# Changelog:
+#   v2.2.0 - Simplified for OpenWrt x86_64 and aarch64 only
 # ============================================================================
 
 name: Build and Release
@@ -17,94 +19,122 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  PROJECT_NAME: speederv2
+  CXXFLAGS: -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers -O2
+  LDFLAGS: -lrt -static
+  SOURCE_FILES: main.cpp log.cpp common.cpp lib/fec.cpp lib/rs.cpp crc32/Crc32.cpp packet.cpp delay_manager.cpp fd_manager.cpp connection.cpp fec_manager.cpp misc.cpp tunnel_client.cpp tunnel_server.cpp my_ev.cpp
+
 jobs:
-  build-openwrt:
-    name: Build OpenWrt (${{ matrix.arch }}) [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-    # 优化：使用 ubuntu-latest 以获得更快的调度速度，解决 pickup 卡顿
-    runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64
-            cc: g++
-            packages: build-essential [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-            
-          - arch: aarch64
-            cc: aarch64-linux-gnu-g++
-            packages: g++-aarch64-linux-gnu [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+  build-x86_64:
+    name: Build x86_64
+    runs-on: ubuntu-20.04
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       
-      - name: Install toolchain
-        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }} [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-      
-      - name: Build
+      - name: Install Dependencies
         run: |
-          # 修复说明：
-          # 1. 添加 libev/ev.c : 解决链接时 "undefined reference" 错误 [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-          # 2. 使用 crc32/*.cpp : 自动匹配文件名 (通常是 crc32.cpp) [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-          # 3. 添加 -lpthread : 确保线程库链接正确 [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-          
-          # 尝试静态编译
-          ${{ matrix.cc }} -std=c++11 -Wall -O2 -static \
-            main.cpp log.cpp common.cpp lib/fec.cpp lib/rs.cpp crc32/*.cpp \
-            packet.cpp delay_manager.cpp fd_manager.cpp connection.cpp fec_manager.cpp \
-            misc.cpp tunnel_client.cpp tunnel_server.cpp my_ev.cpp libev/ev.c \
-            -I. -isystem libev -lrt -lpthread -o speederv2_${{ matrix.arch }} || \ [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-          # 如果静态编译失败，尝试动态编译
-          ${{ matrix.cc }} -std=c++11 -Wall -O2 \
-            main.cpp log.cpp common.cpp lib/fec.cpp lib/rs.cpp crc32/*.cpp \
-            packet.cpp delay_manager.cpp fd_manager.cpp connection.cpp fec_manager.cpp \
-            misc.cpp tunnel_client.cpp tunnel_server.cpp my_ev.cpp libev/ev.c \
-            -I. -isystem libev -lrt -lpthread -o speederv2_${{ matrix.arch }} [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)
-          
-          # 检查生成结果
-          ls -lh speederv2_${{ matrix.arch }}
-          file speederv2_${{ matrix.arch }} [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+          sudo apt-get update
+          sudo apt-get install -y build-essential
       
-      - uses: actions/upload-artifact@v4
+      - name: Generate Version
+        run: |
+          echo "const char *gitversion = \"$(git rev-parse --short HEAD)\";" > git_version.h
+      
+      - name: Build Binary
+        run: |
+          g++ ${CXXFLAGS} -o ${PROJECT_NAME}_x86_64 \
+            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS} -lgcc_eh || \
+          g++ ${CXXFLAGS} -o ${PROJECT_NAME}_x86_64 \
+            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS}
+          
+          file ${PROJECT_NAME}_x86_64
+          ls -lh ${PROJECT_NAME}_x86_64
+      
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: speederv2_${{ matrix.arch }}
-          path: speederv2_${{ matrix.arch }} [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+          name: speederv2_x86_64
+          path: speederv2_x86_64
 
-  release:
-    needs: build-openwrt
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-    
-    permissions:
-      contents: write
+  build-aarch64:
+    name: Build aarch64
+    runs-on: ubuntu-20.04
     
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          path: artifacts [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+          submodules: recursive
       
-      - name: Package
+      - name: Install Dependencies
         run: |
-          mkdir release [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-          # 查找并复制所有构建产物
-          find artifacts -type f -name "speederv2_*" -exec cp {} release/ \; [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu
+      
+      - name: Generate Version
+        run: |
+          echo "const char *gitversion = \"$(git rev-parse --short HEAD)\";" > git_version.h
+      
+      - name: Build Binary
+        run: |
+          aarch64-linux-gnu-g++ ${CXXFLAGS} -o ${PROJECT_NAME}_aarch64 \
+            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS} -lgcc_eh || \
+          aarch64-linux-gnu-g++ ${CXXFLAGS} -o ${PROJECT_NAME}_aarch64 \
+            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS}
+          
+          file ${PROJECT_NAME}_aarch64
+          ls -lh ${PROJECT_NAME}_aarch64
+      
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: speederv2_aarch64
+          path: speederv2_aarch64
+
+  release:
+    name: Create Release
+    needs: [build-x86_64, build-aarch64]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Prepare Release
+        run: |
+          mkdir -p release
+          find artifacts -type f -name "speederv2_*" -exec cp {} release/ \;
+          chmod +x release/speederv2_*
           
           cd release
-          ls -lh
-          sha256sum * > SHA256SUMS.txt
-          tar -czf ../speederv2_binaries.tar.gz * [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
+          sha256sum speederv2_* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          tar -czf ../speederv2_binaries.tar.gz *
+          cd ..
+          
+          ls -lh release/
+          ls -lh speederv2_binaries.tar.gz
       
-      - uses: softprops/action-gh-release@v1
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
           files: |
             speederv2_binaries.tar.gz
-            release/*
+            release/speederv2_*
+            release/SHA256SUMS.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-``` [[1]](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)[[2]](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
-
----
-Learn more:
-1. [How do I properly escape data for a Makefile? - Stack Overflow](https://stackoverflow.com/questions/7654386/how-do-i-properly-escape-data-for-a-makefile)
-2. [ipv6 and domain · wangyu-/UDPspeeder Wiki - GitHub](https://github.com/wangyu-/UDPspeeder/wiki/ipv6-and-domain)
