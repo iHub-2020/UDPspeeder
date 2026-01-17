@@ -1,14 +1,15 @@
 # ============================================================================
-# UDPspeeder OpenWrt Build Workflow
+# UDPspeeder Multi-Platform Build Workflow
 # ============================================================================
 # Project: UDPspeeder
 # Author: iHub-2020
 # Version: v2.2.0
 # Date: 2026-01-17
-# Description: Build static binaries for x86_64 and aarch64
+# Description: Build OpenWrt binaries for x86_64 and aarch64 platforms
 # Repository: https://github.com/iHub-2020/UDPspeeder
 # Changelog:
-#   v2.2.0 - Simplified for OpenWrt x86_64 and aarch64 only
+#   v2.2.0 - Simplified workflow for OpenWrt targets only
+#   v2.1.0 - Multi-platform support with detailed configuration
 # ============================================================================
 
 name: Build and Release
@@ -21,97 +22,93 @@ on:
 
 env:
   PROJECT_NAME: speederv2
-  CXXFLAGS: -std=c++11 -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers -O2
-  LDFLAGS: -lrt -static
-  SOURCE_FILES: main.cpp log.cpp common.cpp lib/fec.cpp lib/rs.cpp crc32/Crc32.cpp packet.cpp delay_manager.cpp fd_manager.cpp connection.cpp fec_manager.cpp misc.cpp tunnel_client.cpp tunnel_server.cpp my_ev.cpp
+  COMMON_FLAGS: >-
+    -std=c++11 -Wall -Wextra -O2
+    -Wno-unused-variable -Wno-unused-parameter -Wno-missing-field-initializers
+  SOURCE_FILES: >-
+    main.cpp log.cpp common.cpp lib/fec.cpp lib/rs.cpp crc32/Crc32.cpp
+    packet.cpp delay_manager.cpp fd_manager.cpp connection.cpp fec_manager.cpp
+    misc.cpp tunnel_client.cpp tunnel_server.cpp my_ev.cpp
 
 jobs:
-  build-x86_64:
-    name: Build x86_64
+  build-openwrt:
+    name: Build OpenWrt (${{ matrix.arch }})
     runs-on: ubuntu-latest
     
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential
-      
-      - name: Generate Version
-        run: |
-          echo "const char *gitversion = \"$(git rev-parse --short HEAD)\";" > git_version.h
-      
-      - name: Build Binary
-        run: |
-          g++ ${CXXFLAGS} -o ${PROJECT_NAME}_x86_64 \
-            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS} -lgcc_eh || \
-          g++ ${CXXFLAGS} -o ${PROJECT_NAME}_x86_64 \
-            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS}
-          
-          file ${PROJECT_NAME}_x86_64
-          ls -lh ${PROJECT_NAME}_x86_64
-      
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: speederv2_x86_64
-          path: speederv2_x86_64
-
-  build-aarch64:
-    name: Build aarch64
-    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            cc: g++
+            packages: build-essential
+            static: true
+            
+          - arch: aarch64
+            cc: aarch64-linux-gnu-g++
+            packages: g++-aarch64-linux-gnu
+            static: true
     
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
       
-      - name: Install Dependencies
+      - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu
+          sudo apt-get install -y ${{ matrix.packages }}
       
-      - name: Generate Version
+      - name: Generate version header
         run: |
           echo "const char *gitversion = \"$(git rev-parse --short HEAD)\";" > git_version.h
       
-      - name: Build Binary
+      - name: Build binary
         run: |
-          aarch64-linux-gnu-g++ ${CXXFLAGS} -o ${PROJECT_NAME}_aarch64 \
-            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS} -lgcc_eh || \
-          aarch64-linux-gnu-g++ ${CXXFLAGS} -o ${PROJECT_NAME}_aarch64 \
-            -I. ${SOURCE_FILES} -isystem libev ${LDFLAGS}
+          if [ "${{ matrix.static }}" = "true" ]; then
+            ${{ matrix.cc }} ${COMMON_FLAGS} -static \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt -lgcc_eh || \
+            ${{ matrix.cc }} ${COMMON_FLAGS} -static \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt || \
+            ${{ matrix.cc }} ${COMMON_FLAGS} \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt
+          else
+            ${{ matrix.cc }} ${COMMON_FLAGS} \
+              -o ${PROJECT_NAME}_${{ matrix.arch }} -I. \
+              ${SOURCE_FILES} -isystem libev -lrt
+          fi
           
-          file ${PROJECT_NAME}_aarch64
-          ls -lh ${PROJECT_NAME}_aarch64
+          file ${PROJECT_NAME}_${{ matrix.arch }}
+          ls -lh ${PROJECT_NAME}_${{ matrix.arch }}
       
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: speederv2_aarch64
-          path: speederv2_aarch64
+          name: speederv2_${{ matrix.arch }}
+          path: speederv2_${{ matrix.arch }}
+          retention-days: 30
 
-  release:
+  create-release:
     name: Create Release
-    needs: [build-x86_64, build-aarch64]
+    needs: build-openwrt
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/v')
     
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Download Artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
       
-      - name: Prepare Release
+      - name: Prepare release
         run: |
           mkdir -p release
           find artifacts -type f -name "speederv2_*" -exec cp {} release/ \;
@@ -119,14 +116,13 @@ jobs:
           
           cd release
           sha256sum speederv2_* > SHA256SUMS.txt
-          cat SHA256SUMS.txt
           tar -czf ../speederv2_binaries.tar.gz *
           cd ..
           
           ls -lh release/
           ls -lh speederv2_binaries.tar.gz
       
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
