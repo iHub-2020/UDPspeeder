@@ -21,7 +21,7 @@ TARGETS=amd64 arm mips24kc_be x86  mips24kc_le
 
 TAR=${NAME}_binaries.tar.gz `echo ${TARGETS}|sed -r 's/([^ ]+)/${NAME}_\1/g'` version.txt
 
-export STAGING_DIR=/tmp/    #just for supress warning of staging_dir not define
+export STAGING_DIR=/tmp/    #just for suppress warning of staging_dir not define
 
 # targets for nativei (non-cross) compile 
 all:git_version
@@ -36,7 +36,7 @@ mingw:git_version
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES} ${FLAGS}  -ggdb -static -O2 -lws2_32
 
-mingw_wepoll:git_version    #to compile you need a pacthed version of libev with wepoll backend
+mingw_wepoll:git_version    #to compile you need a patched version of libev with wepoll backend
 	rm -f ${NAME}
 	${cc_local}   -o ${NAME}          -I. ${SOURCES0} ${FLAGS}  -ggdb -static -O2   -DNO_LIBEV_EMBED -D_WIN32 -lev -lws2_32 
 
@@ -58,6 +58,9 @@ cross2:git_version
 
 cross3:git_version
 	${cc_cross}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -lrt -static -O2
+
+cross_cxx:git_version
+	${CXX}   -o ${NAME}_cross    -I. ${SOURCES} ${FLAGS} -O2 ${CXXFLAGS} ${LDFLAGS} ${LDLIBS}
 
 #targets only for debug purpose
 fast: git_version
@@ -96,7 +99,7 @@ release: ${TARGETS}
 mingw_cross:git_version   #to build this and the below one you need 'mingw-w64' installed (the cross compile version on linux)
 	${cc_mingw_cross}   -o ${NAME}.exe          -I. ${SOURCES} ${FLAGS}  -ggdb -static -O2 -lws2_32
 
-mingw_cross_wepoll:git_version    #to compile you need a pacthed version of libev with wepoll backend installed
+mingw_cross_wepoll:git_version    #to compile you need a patched version of libev with wepoll backend installed
 	${cc_mingw_cross}   -o ${NAME}_wepoll.exe       -I. ${SOURCES0} ${FLAGS}  -ggdb -static -O2   -DNO_LIBEV_EMBED -D_WIN32 -lev -lws2_32
 
 #targets for cross compile macos targets on linux 
@@ -115,5 +118,6 @@ clean:
 	rm -f ${NAME} ${NAME}_cross ${NAME}.exe ${NAME}_wepoll.exe ${NAME}_mac
 	rm -f git_version.h
 
+gitversion ?= $(shell git rev-parse HEAD 2>/dev/null)
 git_version:
-	    echo "const char *gitversion = \"$(shell git rev-parse HEAD)\";" > git_version.h
+	    echo "const char *gitversion = \"$(gitversion)\";" > git_version.h
